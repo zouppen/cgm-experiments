@@ -1,0 +1,1 @@
+Try compiling this way: gcc -Wall -o utf8_test utf8_getc.c utf8_test.c
