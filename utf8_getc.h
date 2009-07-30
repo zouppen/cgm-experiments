@@ -15,9 +15,8 @@ typedef struct {
 } utf8_string;
 
 /**
- * Reads UTF-8 character from a stream and writes it to buf, padding it to
- * UTF8_MAX_BYTES by writing zeroes to the end of buf. Returns the number of
- * bytes read.
+ * Reads UTF-8 character from a stream and writes it to buf. Does not pad
+ * buf with anything. Returns the number of bytes read.
  */
 int utf8_fgetc(FILE *stream, unsigned char *buf);
 

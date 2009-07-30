@@ -20,9 +20,8 @@
 #include "utf8_getc.h"
 
 /**
- * Reads UTF-8 character from a stream and writes it to buf, padding it to
- * UTF8_MAX_BYTES by writing zeroes to the end of buf. Returns the number of
- * bytes read.
+ * Reads UTF-8 character from a stream and writes it to buf. Does not pad
+ * buf with anything. Returns the number of bytes read.
  */
 int utf8_fgetc(FILE *stream, unsigned char *buf)
 {
@@ -40,8 +39,6 @@ int utf8_fgetc(FILE *stream, unsigned char *buf)
   got = fread(buf+1, 1, bytes-1, stream);
   if (got != bytes-1) return UTF8_FGETC_TRUNCATED_BYTE;
 
-  // Padding the char with zero bytes
-  memset(buf+bytes, 0, UTF8_MAX_BYTES-bytes); 
   return bytes; // number of bytes read
 }
 

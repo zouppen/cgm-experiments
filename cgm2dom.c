@@ -72,23 +72,29 @@ int main(int argc, char **argv)
 		if (n < 0) errx(2,"Vika tiedostossa.");
 		
 		if (utf8_compare_char(buf, &newline)) {
+			fwrite(buf, 1, n, stdout);
+			printf("%d ",n);
+
 			// other char
 			// FIXME check
 			buf += n; // Char ok for text buffer, taking that one.
 			text.len += n;
-
-			fwrite(buf, 1, n, stdout);
-			printf("%d ",n);
 		} else {
-			*buf = '\0'; // temp.
 			//FIXME counter
-			xmlNewChild(root, ns_CGM, BAD_CAST "line", text.data);
+			xmlNodePtr newtext = xmlNewTextLen(text.data, text.len);
+			xmlNodePtr new_el = xmlNewChild(root, NULL,
+							BAD_CAST "line", NULL);
+			xmlAddChild(new_el, newtext);
+			
 
 			// Text node is done, rolling back
 			buf=text.data;
 			text.len = 0;
 		}
 	}
+
+	printf("\n");
+	
 	/*
 	xmlNewChild(root_node, NULL, BAD_CAST "node1",
 		    BAD_CAST "content of node 1");
