@@ -1,118 +1,107 @@
-/* 
- * section:  Tree
- * synopsis: Creates a tree
- * purpose:  Shows how to create document, nodes and dump it to stdout or file.
- * usage:    tree2 <filename>  -Default output: stdout
- * test:     tree2 > tree2.tmp ; diff tree2.tmp tree2.res ; rm tree2.tmp
- * author:   Lucas Brasilino <brasilino@recife.pe.gov.br>
- * copy:     see Copyright for the status of this software
+/** 
+ * Experiments for CGM DOM tree generation.
+ * Based on the nice example DOM creation by
+ * Lucas Brasilino <brasilino@recife.pe.gov.br>
+ *
+ * To compile this file using gcc you can type
+ * gcc `xml2-config --cflags --libs` -o cgm2dom cgm2dom.c utf8_getc.c
+ * 
+ * @author Joel Lehtonen
  */
 
 #include <stdio.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
+#include "utf8_getc.h"
+
 #if defined(LIBXML_TREE_ENABLED) && defined(LIBXML_OUTPUT_ENABLED)
 
-/*
- *To compile this file using gcc you can type
- *gcc `xml2-config --cflags --libs` -o tree2 tree2.c
- */
+const int MAX_LEVELS=10; // hard-wired indent levels... blame me.
+const int true = 1;
 
-/* A simple example how to create DOM. Libxml2 automagically 
- * allocates the necessary amount of memory to it.
-*/
-int
-main(int argc, char **argv)
+struct level {
+	int indentation;   // indentation of that level
+	xmlNodePtr parent; // parent node of this level
+};
+
+int main(int argc, char **argv)
 {
-    xmlDocPtr doc = NULL;       /* document pointer */
-    xmlNodePtr root_node = NULL, node = NULL, node1 = NULL;/* node pointers */
-    xmlDtdPtr dtd = NULL;       /* DTD pointer */
-    char buff[256];
-    int i, j;
+	xmlDocPtr doc = NULL;            // document pointer
+	struct level levels[MAX_LEVELS];
+	int cur_level_i = 0;
+	struct level *cur_level = levels; // pointer to the first element 
+	char *newline = "\n";
 
-    LIBXML_TEST_VERSION;
+	if (argc < 2 || argc > 3) 
+		errx(1, "Usage: %s CGM_FILE [OUTPUT_FILE]", argv[0]);
+     
+	FILE *file = fopen(argv[1], "rb");
+	if ( file == NULL) err(1,"Can not open the file");
 
-    /* 
-     * Creates a new document, a node and set it as a root node
-     */
-    doc = xmlNewDoc(BAD_CAST "1.0");
-    root_node = xmlNewNode(NULL, BAD_CAST "root");
-    xmlDocSetRootElement(doc, root_node);
+	xmlNsPtr nsCGM = xmlNewNs(NULL, "http://codegrove.org/2009/cgm", "cgm");
 
-    /*
-     * Creates a DTD declaration. Isn't mandatory. 
-     */
-    dtd = xmlCreateIntSubset(doc, BAD_CAST "root", NULL, BAD_CAST "tree2.dtd");
+	// DOM startup
+	{
+		LIBXML_TEST_VERSION;
+		doc = xmlNewDoc(BAD_CAST "1.0"); // XML 1.0
+		
+		// UNTESTED! FIXME.
+		xmlNodePtr root = xmlNewNode(nsCGM, BAD_CAST "cgm");
+		xmlDocSetRootElement(doc, root);
 
-    /* 
-     * xmlNewChild() creates a new node, which is "attached" as child node
-     * of root_node node. 
-     */
-    xmlNewChild(root_node, NULL, BAD_CAST "node1",
-                BAD_CAST "content of node 1");
-    /* 
-     * The same as above, but the new child node doesn't have a content 
-     */
-    xmlNewChild(root_node, NULL, BAD_CAST "node2", NULL);
+		cur_level->indentation = 0;
+		cur_level->parent = root;
+	}
 
-    /* 
-     * xmlNewProp() creates attributes, which is "attached" to an node.
-     * It returns xmlAttrPtr, which isn't used here.
-     */
-    node =
-        xmlNewChild(root_node, NULL, BAD_CAST "node3",
-                    BAD_CAST "this node has attributes");
-    xmlNewProp(node, BAD_CAST "attribute", BAD_CAST "yes");
-    xmlNewProp(node, BAD_CAST "foo", BAD_CAST "bar");
+	char buf[UTF8_MAX_BYTES];
+		
+	while (true) {
+		int n = utf8_fgetc(file, buf);
+		
+		if (n == UTF8_FGETC_NO_DATA && feof(file) ) break; // normal EOF
+		if (n < 0) errx(2,"Vika tiedostossa.");
+		
+		fwrite(buf, 1, n, stdout);
+		printf("%d ",n);
+	}
+	/*
+	xmlNewChild(root_node, NULL, BAD_CAST "node1",
+		    BAD_CAST "content of node 1");
 
-    /*
-     * Here goes another way to create nodes. xmlNewNode() and xmlNewText
-     * creates a node and a text node separately. They are "attached"
-     * by xmlAddChild() 
-     */
-    node = xmlNewNode(NULL, BAD_CAST "node4");
-    node1 = xmlNewText(BAD_CAST
-                   "other way to create content (which is also a node)");
-    xmlAddChild(node, node1);
-    xmlAddChild(root_node, node);
+	node =
+		xmlNewChild(root_node, NULL, BAD_CAST "node3",
+			    BAD_CAST "this node has attributes");
+	xmlNewProp(node, BAD_CAST "attribute", BAD_CAST "yes");
+	xmlNewProp(node, BAD_CAST "foo", BAD_CAST "bar");
 
-    /* 
-     * A simple loop that "automates" nodes creation 
-     */
-    for (i = 5; i < 7; i++) {
-        sprintf(buff, "node%d", i);
-        node = xmlNewChild(root_node, NULL, BAD_CAST buff, NULL);
-        for (j = 1; j < 4; j++) {
-            sprintf(buff, "node%d%d", i, j);
-            node1 = xmlNewChild(node, NULL, BAD_CAST buff, NULL);
-            xmlNewProp(node1, BAD_CAST "odd", BAD_CAST((j % 2) ? "no" : "yes"));
-        }
-    }
+	node = xmlNewNode(NULL, BAD_CAST "node4");
+	node1 = xmlNewText(BAD_CAST
 
-    /* 
-     * Dumping document to stdio or file
-     */
-    xmlSaveFormatFileEnc(argc > 1 ? argv[1] : "-", doc, "UTF-8", 1);
+			   */
 
-    /*free the document */
-    xmlFreeDoc(doc);
+	/* 
+	 * Dumping document to stdio or file
+	 */
+	xmlSaveFormatFileEnc(argc > 2 ? argv[2] : "-", doc, "UTF-8", 1);
 
-    /*
-     *Free the global variables that may
-     *have been allocated by the parser.
-     */
-    xmlCleanupParser();
+	/*free the document */
+	xmlFreeDoc(doc);
 
-    /*
-     * this is to debug memory for regression tests
-     */
-    xmlMemoryDump();
-    return(0);
+	/*
+	 *Free the global variables that may
+	 *have been allocated by the parser.
+	 */
+	xmlCleanupParser();
+
+	/*
+	 * this is to debug memory for regression tests
+	 */
+	xmlMemoryDump();
+	return(0);
 }
 #else
-int main(void) {
-    fprintf(stderr, "tree support not compiled in\n");
-    exit(1);
-}
+	int main(void) {
+		errx(1, "Tree support not compiled in");
+	}
 #endif
