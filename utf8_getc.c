@@ -24,7 +24,7 @@
  * UTF8_MAX_BYTES by writing zeroes to the end of buf. Returns the number of
  * bytes read.
  */
-int utf8_fgetc(FILE *stream, char *buf)
+int utf8_fgetc(FILE *stream, unsigned char *buf)
 {
   int got;
 
@@ -48,11 +48,21 @@ int utf8_fgetc(FILE *stream, char *buf)
 /**
  * Returns an UTF-8 char length in bytes by analyzing the first byte.
  */
-inline int char_length(char byte) {
+inline int char_length(unsigned char byte) {
   if ( (byte & 0x80) == 0x00 ) return 1; // 0xxxxxxx (plain ASCII)
   if ( (byte & 0xe0) == 0xc0 ) return 2; // 110xxxxx
   if ( (byte & 0xf0) == 0xe0 ) return 3; // 1110xxxx
   if ( (byte & 0xf8) == 0xf0 ) return 4; // 1110xxxx
 
   return -1; // invalid byte
+}
+
+/**
+ * Checks if UTF-8 buffer starts with a given UTF-8 string.
+ * Buffer size in bytes must be at least as long as given UTF-8 string.
+ * This just makes a raw comparison and distinguishes similar characters with
+ * diffent raw codes.
+ */
+int utf8_compare_char(unsigned char *buf, utf8_string *str) {
+	return memcmp(buf, str->data, str->len);
 }
