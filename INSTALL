@@ -1,7 +1,7 @@
-Trythis way:
+Try this way:
 
 splitter:
-	gcc -Wall -o utf8_test utf8_getc.c utf8_test.c
+	gcc -Wall -Wextra -std=c99 -pedantic -o utf8_test utf8_getc.c utf8_test.c
 
 xml_generator:
-	gcc `xml2-config --cflags --libs` -o cgm2dom cgm2dom.c utf8_getc.c
+	gcc -Wall -Wextra -std=c99 -pedantic `xml2-config --cflags --libs` -o cgm2dom cgm2dom.c utf8_getc.c

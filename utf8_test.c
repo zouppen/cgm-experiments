@@ -11,12 +11,12 @@ int main(int argc, char **argv)
   FILE *file = fopen(argv[1], "rb");
   if ( file == NULL) err(1,"Tiedostoa ei saanut avattua");
   
-  char buf[UTF8_MAX_BYTES];
+  unsigned char buf[UTF8_MAX_BYTES];
 
   while (true) {
     int n = utf8_fgetc(file, buf);
     
-    if (n == UTF8_FGETC_NO_DATA && feof(file) ) break; // normal EOF
+    if (n == UTF8_ERR_NO_DATA && feof(file) ) break; // normal EOF
     if (n < 0) errx(2,"Vika tiedostossa.");
 
     fwrite(buf, 1, n, stdout);

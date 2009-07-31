@@ -15,8 +15,8 @@
  * prevent character extraction from a stream. It doesn't decode Unicode values.
  */
 
-#include <stdio.h>
 #include <string.h>
+#include <stdio.h>
 #include "utf8_getc.h"
 
 /**
@@ -27,31 +27,31 @@ int utf8_fgetc(FILE *stream, unsigned char *buf)
 {
   int got;
 
-  // Reading the first byte of a character
+  // Reading the first byte of a character.
   got = fread(buf, 1, 1, stream);
-  if (got != 1) return UTF8_FGETC_NO_DATA;
+  if (got != 1) return UTF8_ERR_NO_DATA;
   
-  // Examining the first byte to determine character length
-  int bytes = char_length(buf[0]);
-  if (bytes == -1) return UTF8_FGETC_INVALID_BYTE;
+  // Examining the first byte to determine character length.
+  int bytes = utf8_chrlen(buf[0]);
+  if (bytes == UTF8_ERR_INVALID_BYTE) return UTF8_ERR_INVALID_BYTE;
 
-  // Reading other bytes of a multibyte char
+  // Reading other bytes of a multibyte char.
   got = fread(buf+1, 1, bytes-1, stream);
-  if (got != bytes-1) return UTF8_FGETC_TRUNCATED_BYTE;
+  if (got != bytes-1) return UTF8_ERR_TRUNCATED_BYTE;
 
-  return bytes; // number of bytes read
+  return bytes; // Number of bytes read.
 }
 
 /**
  * Returns an UTF-8 char length in bytes by analyzing the first byte.
  */
-inline int char_length(unsigned char byte) {
+inline int utf8_chrlen(unsigned char byte) {
   if ( (byte & 0x80) == 0x00 ) return 1; // 0xxxxxxx (plain ASCII)
   if ( (byte & 0xe0) == 0xc0 ) return 2; // 110xxxxx
   if ( (byte & 0xf0) == 0xe0 ) return 3; // 1110xxxx
   if ( (byte & 0xf8) == 0xf0 ) return 4; // 1110xxxx
 
-  return -1; // invalid byte
+  return UTF8_ERR_INVALID_BYTE;
 }
 
 /**

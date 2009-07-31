@@ -10,6 +10,7 @@
  */
 
 #include <stdio.h>
+#include <err.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
@@ -32,7 +33,7 @@ int main(int argc, char **argv)
 	int cur_level_i = 0;
 	struct level *cur_level = levels; // pointer to the first element 
 	utf8_string newline;
-	newline.data = "\n";
+	newline.data = BAD_CAST "\n";
 	newline.len = 1;
 
 	if (argc < 2 || argc > 3) 
@@ -50,7 +51,9 @@ int main(int argc, char **argv)
 	// trial and error. Libxml2 folks have skipped documentation.
 	
 	xmlNodePtr root = xmlNewNode(NULL, BAD_CAST "cgm");
-	xmlNsPtr ns_CGM = xmlNewNs(root, "http://codegrove.org/2009/cgm", NULL);
+	xmlNsPtr ns_CGM = xmlNewNs(root, 
+				   BAD_CAST "http://codegrove.org/2009/cgm",
+				   NULL);
 	xmlDocSetRootElement(doc, root);
 	
 	// Set level indicators	
@@ -68,7 +71,7 @@ int main(int argc, char **argv)
 	while (true) {
 		int n = utf8_fgetc(file, buf);
 		
-		if (n == UTF8_FGETC_NO_DATA && feof(file) ) break; // normal EOF
+		if (n == UTF8_ERR_NO_DATA && feof(file) ) break; // normal EOF
 		if (n < 0) errx(2,"Vika tiedostossa.");
 		
 		if (utf8_compare_char(buf, &newline)) {
