@@ -17,7 +17,7 @@
 
 #include <string.h>
 #include <stdio.h>
-#include "utf8_getc.h"
+#include "utf8.h"
 
 /**
  * Reads UTF-8 character from a stream and writes it to buf. Does not pad

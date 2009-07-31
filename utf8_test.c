@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <err.h>
-#include "utf8_getc.h"
+#include "utf8.h"
 
 const int true = 1;
 

@@ -14,7 +14,7 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
-#include "utf8_getc.h"
+#include "utf8.h"
 
 #if defined(LIBXML_TREE_ENABLED) && defined(LIBXML_OUTPUT_ENABLED)
 
