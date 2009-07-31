@@ -60,6 +60,6 @@ inline int utf8_chrlen(unsigned char byte) {
  * This just makes a raw comparison and distinguishes similar characters with
  * diffent raw codes.
  */
-int utf8_compare_char(unsigned char *buf, utf8_string *str) {
+int utf8_starts_with(unsigned char *buf, utf8_string *str) {
 	return memcmp(buf, str->data, str->len);
 }

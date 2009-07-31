@@ -8,6 +8,8 @@
 #define UTF8_ERR_INVALID_BYTE (-2)
 #define UTF8_ERR_TRUNCATED_BYTE (-3)
 
+#include <stdio.h>
+
 /* yet another UTF-8 string */
 typedef struct {
 	unsigned char *data;
@@ -25,6 +27,6 @@ int utf8_fgetc(FILE *stream, unsigned char *buf);
  */
 int utf8_chrlen(unsigned char byte);
 
-int utf8_compare_char(unsigned char *buf, utf8_string *str);
+int utf8_starts_with(unsigned char *buf, utf8_string *str);
 
 #endif //UTF8_H

@@ -60,9 +60,7 @@ int main(int argc, char **argv)
 	cur_level->indentation = 0;
 	cur_level->parent = root;
 	
-
-	//unsigned char buf[UTF8_MAX_BYTES];
-	unsigned char *helper[2048]; // FIXME: hard coded
+	unsigned char helper[2048]; // FIXME: hard coded
 	utf8_string text;
 	text.data = helper;
 	text.len = 0;
@@ -74,7 +72,7 @@ int main(int argc, char **argv)
 		if (n == UTF8_ERR_NO_DATA && feof(file) ) break; // normal EOF
 		if (n < 0) errx(2,"Vika tiedostossa.");
 		
-		if (utf8_compare_char(buf, &newline)) {
+		if (utf8_starts_with(buf, &newline)) {
 			fwrite(buf, 1, n, stdout);
 			printf("%d ",n);
 
@@ -87,8 +85,7 @@ int main(int argc, char **argv)
 			xmlNodePtr newtext = xmlNewTextLen(text.data, text.len);
 			xmlNodePtr new_el = xmlNewChild(root, NULL,
 							BAD_CAST "line", NULL);
-			xmlAddChild(new_el, newtext);
-			
+			xmlAddChild(new_el, newtext);			
 
 			// Text node is done, rolling back
 			buf=text.data;
