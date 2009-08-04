@@ -30,7 +30,7 @@ struct mmap_info {
  * In case of error, struct member state is set to mmap_state_error
  * and errno is set.
  */
-struct mmap_info mmap_file(const char *pathname, enum mmap_mode mode);
+struct mmap_info mmap_fopen(const char *pathname, enum mmap_mode mode);
 
 /**
  * Closes the given mmapped file. Error can be read from info->state and errno.

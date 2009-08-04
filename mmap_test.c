@@ -6,7 +6,7 @@ int main(int argc, char **argv)
 {
 	if (argc != 2) errx(1, "Usage: %s FILE_TO_READ", argv[0]);
 
-	struct mmap_info info =	mmap_file(argv[1], mmap_mode_volatile_write);
+	struct mmap_info info =	mmap_fopen(argv[1], mmap_mode_volatile_write);
 
 	if (info.state == mmap_state_error) err(1,"Can not open a file %s "
 						"for reading and mmapping",

@@ -25,7 +25,7 @@
  * In case of error, struct member state is set to mmap_state_error
  * and errno is set.
  */
-struct mmap_info mmap_file(const char *pathname, enum mmap_mode mode)
+struct mmap_info mmap_fopen(const char *pathname, enum mmap_mode mode)
 {
 	int ret;
 	int open_flags, mmap_prot, mmap_flags; // Flags depending on mode.
@@ -83,6 +83,7 @@ void mmap_close(struct mmap_info *info)
 	ret = munmap(info->data, info->length);
 	if (ret == -1) info->state = mmap_state_error;
 	// In case of fail, continue anyway try to close the file.
+	// In that case close errno will overwrite this errno.
 
 	// Close the file.
 	ret = close(info->fd);
