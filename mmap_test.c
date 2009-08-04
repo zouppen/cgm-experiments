@@ -25,7 +25,7 @@ int main(int argc, char **argv)
 
 	printf("File length: %d\nFirst line: %s\n", (int)info.length, data);
 
-	void mmap_close(struct mmap_info *info);
+	mmap_close(&info);
 	if (info.state == mmap_state_error) err(1,"Can not close the file %s",
 						argv[1]);
 

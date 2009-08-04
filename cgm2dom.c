@@ -15,6 +15,7 @@
 #include <libxml/tree.h>
 
 #include "utf8.h"
+#include "mmap.h"
 
 #if defined(LIBXML_TREE_ENABLED) && defined(LIBXML_OUTPUT_ENABLED)
 
@@ -34,21 +35,25 @@ enum cgm_special{cgm_element_start,
 
 int main(int argc, char **argv)
 {
-	char cgm_specials[cgm_special_count][UTF8_MAX_BYTES];
+	utf8_string cgm_specials[cgm_special_count];
 
 	xmlDocPtr doc = NULL;            // document pointer
 	struct level levels[MAX_LEVELS];
 	int cur_level_i = 0;
 	struct level *cur_level = levels; // pointer to the first element 
-	utf8_string newline;
-	newline.data = BAD_CAST "\n";
-	newline.len = 1;
+	utf8_string newline = utf8_literal_to_string("\n");
+
+	printf("pituus: %d, tavuja %d\nsisus: %s\n", newline.length,
+	       newline.bytes, newline.data);
 
 	if (argc < 2 || argc > 3) 
 		errx(1, "Usage: %s CGM_FILE [OUTPUT_FILE]", argv[0]);
+
+	// Opening CGM file to memory
+	struct mmap_info info =	mmap_fopen(argv[1], mmap_mode_volatile_write);
+	if (info.state == mmap_state_error)
+		err(1,"Can not open a file %s for reading", argv[1]);
      
-	FILE *file = fopen(argv[1], "rb");
-	if ( file == NULL) err(1,"Can not open the file");
 
 	// DOM startup
 	
@@ -63,7 +68,7 @@ int main(int argc, char **argv)
 				   BAD_CAST "http://codegrove.org/2009/cgm",
 				   NULL);
 	xmlDocSetRootElement(doc, root);
-	
+/*	
 	// Set level indicators	
 	cur_level->indentation = 0;
 	cur_level->parent = root;
@@ -105,7 +110,7 @@ int main(int argc, char **argv)
 
 	enum cgm_special joopajoo;
 	printf("sizeof: %d %d\n", cgm_element_end, cgm_special_count);
-	/*
+*/	/*
 	xmlNewChild(root_node, NULL, BAD_CAST "node1",
 		    BAD_CAST "content of node 1");
 
@@ -138,9 +143,14 @@ int main(int argc, char **argv)
 	 * this is to debug memory for regression tests
 	 */
 	xmlMemoryDump();
+
+	mmap_close(&info);
+	if (info.state == mmap_state_error)
+		err(1,"Can not close the file %s",  argv[1]);
+
 	return(0);
 }
-
+/*
 int read_cgm_header(FILE *file,
 		    cgm_specials[cgm_special_count][UTF8_MAX_BYTES]) {
 
@@ -165,7 +175,7 @@ int read_cgm_header(FILE *file,
 	cgm_element_end,
 		 cgm_escape,
 		 cgm_element_content_separator,}
-
+*/
 #else
 	int main(void) {
 		errx(1, "Tree support not compiled in");

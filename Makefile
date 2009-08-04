@@ -17,8 +17,8 @@ mmap.o: mmap.c
 mmap_tester: mmap.o mmap_test.c
 	gcc $(CFLAGS) -o mmap_test mmap.o mmap_test.c
 
-cgm2dom: utf8.o cgm2dom.c
-	gcc $(CFLAGS) $(LDFLAGS) -o cgm2dom utf8.o cgm2dom.c
+cgm2dom: utf8.o mmap.o cgm2dom.c
+	gcc $(CFLAGS) $(LDFLAGS) -o cgm2dom utf8.o mmap.o cgm2dom.c
 
 clean:
 	@rm -f utf8.o mmap.o

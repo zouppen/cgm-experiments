@@ -49,4 +49,11 @@ int utf8_starts_with(unsigned char *buf, utf8_string *str);
  */
 utf8_string utf8_as_string(unsigned char *buf, int n, int max_bytes);
 
+/**
+ * Reads a C string literal to an utf8_string. Please note that this is
+ * FIXME and is not indented to everyday use (has a fancy 9999 limit and
+ * dirty casting). Rewrite if you mind.
+ */
+utf8_string utf8_literal_to_string(const char* literal);
+
 #endif //UTF8_H

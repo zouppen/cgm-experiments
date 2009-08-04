@@ -101,7 +101,7 @@ utf8_string utf8_as_string(unsigned char *buf, int n, int max_bytes)
 		// Stop if inter-character point is at max_bytes. Count all in.
 		if (str.bytes == max_bytes) break;
 
-		int bytes = utf8_chrlen(str.data + str.bytes);
+		int bytes = utf8_chrlen(str.data[str.bytes]);
 
 		// Stop if invalid byte
 		if (bytes == UTF8_ERR_INVALID_BYTE) {
@@ -109,7 +109,7 @@ utf8_string utf8_as_string(unsigned char *buf, int n, int max_bytes)
 			break;
 		}
 
-		// Stop if inter-character point is beyoud the buffer.
+		// Stop if inter-character point is beyond the buffer.
 		if (str.bytes+bytes > max_bytes) break;
 		
 		str.bytes += bytes;
@@ -117,4 +117,14 @@ utf8_string utf8_as_string(unsigned char *buf, int n, int max_bytes)
 	}
 	
 	return str;
+}
+
+/**
+ * Reads a C string literal to an utf8_string. Please note that this is
+ * FIXME and is not indented to everyday use (has a fancy 9999 limit and
+ * dirty casting). Rewrite if you mind.
+ */
+utf8_string utf8_literal_to_string(const char* literal)
+{
+	return utf8_as_string((unsigned char *)literal, 9999, strlen(literal));
 }
