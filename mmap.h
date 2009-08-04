@@ -4,17 +4,17 @@
 #include <sys/types.h>
 
 enum mmap_state {
-	mmap_state_not_opened,
+	mmap_state_closed,
 	mmap_state_error,
-	mmap_state_open,
-	mmap_state_closed
+	mmap_state_open
+
 };
 
 enum mmap_mode {
 	mmap_mode_readonly,       // read-only access to the file and memory
 	mmap_mode_write,          // read and write access
 	mmap_mode_volatile_write  // read-only access to the file but
-                                  // altering the data buffer is allowed
+                              // altering the data buffer is allowed
 };
 
 struct mmap_info {
