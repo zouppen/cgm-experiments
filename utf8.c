@@ -43,6 +43,23 @@ int utf8_fgetc(FILE *stream, unsigned char *buf)
 }
 
 /**
+ * Reads n UTF-8 characters from a stream and writes it to buf. Does not pad
+ * buf with anything. Returns the number of bytes read.
+ */
+int utf8_fgets(FILE *stream, unsigned char *buf, int n)
+{
+	int i, bytes, total_bytes=0;
+	for( i=0; i<n; i++) {
+		bytes = utf8_fgetc(stream, buf);
+		if (bytes < 0) return bytes; // error
+
+		buf += bytes; // moving the pointer
+		total_bytes += bytes;
+	}
+	return total_bytes;
+}
+
+/**
  * Returns an UTF-8 char length in bytes by analyzing the first byte.
  */
 inline int utf8_chrlen(unsigned char byte) {

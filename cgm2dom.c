@@ -26,8 +26,16 @@ struct level {
 	xmlNodePtr parent; // parent node of this level
 };
 
+enum cgm_special{cgm_element_start,
+		 cgm_element_end,
+		 cgm_escape,
+		 cgm_element_content_separator,
+		 cgm_special_count};
+
 int main(int argc, char **argv)
 {
+	char cgm_specials[cgm_special_count][UTF8_MAX_BYTES];
+
 	xmlDocPtr doc = NULL;            // document pointer
 	struct level levels[MAX_LEVELS];
 	int cur_level_i = 0;
@@ -94,7 +102,9 @@ int main(int argc, char **argv)
 	}
 
 	printf("\n");
-	
+
+	enum cgm_special joopajoo;
+	printf("sizeof: %d %d\n", cgm_element_end, cgm_special_count);
 	/*
 	xmlNewChild(root_node, NULL, BAD_CAST "node1",
 		    BAD_CAST "content of node 1");
@@ -130,6 +140,32 @@ int main(int argc, char **argv)
 	xmlMemoryDump();
 	return(0);
 }
+
+int read_cgm_header(FILE *file,
+		    cgm_specials[cgm_special_count][UTF8_MAX_BYTES]) {
+
+	int cgm_magic_len = 4;
+	unsigned char cgm_magic_correct = "cgm ";
+	unsigned char cgm_magic_buf[cgm_magic_len];
+	unsigned char *pos;
+	int n;
+
+	n = utf8_fgetc(file, cgm_specials[cgm_element_start]);
+	if (n<0) return n;
+
+	n = fread(cgm_magic_buf, 1, cgm_magic_len, file);
+	if (n < cgm_magic_len) return -1;
+	if ( memcmp(cgm_magic_buf, cgm_magic_correct, cgm_magic_len ) )
+		return -1;
+
+	//lue loput
+	n = utf8_fgets(file, cgm_magic, 4);
+	int utf8_starts_with(unsigned char *buf, utf8_string *str);
+
+	cgm_element_end,
+		 cgm_escape,
+		 cgm_element_content_separator,}
+
 #else
 	int main(void) {
 		errx(1, "Tree support not compiled in");
