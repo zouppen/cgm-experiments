@@ -28,11 +28,11 @@
 struct mmap_info mmap_file(const char *pathname, enum mmap_mode mode)
 {
 	int ret;
-	int open_flags, mmap_prot, mmap_flags; // flags depending on mode
+	int open_flags, mmap_prot, mmap_flags; // Flags depending on mode.
 	struct mmap_info info;
-	info.state = mmap_state_error; // Reset if everything ok.
+	info.state = mmap_state_error; // Reset if everything is ok.
 	
-	// Determining options for open(2) and mmap(2)
+	// Determining options for open(2) and mmap(2).
 	switch (mode) {
 	case (mmap_mode_readonly):
 		open_flags = O_RDONLY;
@@ -88,5 +88,3 @@ void mmap_close(struct mmap_info *info)
 	ret = close(info->fd);
 	if (ret == -1) info->state = mmap_state_error;
 }
-
-		
