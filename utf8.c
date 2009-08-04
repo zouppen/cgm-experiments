@@ -77,6 +77,44 @@ inline int utf8_chrlen(unsigned char byte) {
  * This just makes a raw comparison and distinguishes similar characters with
  * diffent raw codes.
  */
-int utf8_starts_with(unsigned char *buf, utf8_string *str) {
-	return memcmp(buf, str->data, str->len);
+int utf8_starts_with(unsigned char *buf, utf8_string *str)
+{
+	return memcmp(buf, str->data, str->bytes);
+}
+
+/**
+ * Gets utf8 string from given buf. The string contains at most max_bytes and
+ * n characters. The string may be shorter if there was not enough characters
+ * between buf and buf+max_bytes.
+ */
+utf8_string utf8_as_string(unsigned char *buf, int n, int max_bytes)
+{
+	utf8_string str;
+	str.data = buf; // starting address never changes
+	str.bytes = 0;
+	str.length = 0;
+
+	while (1) {
+		// Stop if enough characters has been read.
+		if (str.length == n) break;
+
+		// Stop if inter-character point is at max_bytes. Count all in.
+		if (str.bytes == max_bytes) break;
+
+		int bytes = utf8_chrlen(str.data + str.bytes);
+
+		// Stop if invalid byte
+		if (bytes == UTF8_ERR_INVALID_BYTE) {
+			str.length = -1;
+			break;
+		}
+
+		// Stop if inter-character point is beyoud the buffer.
+		if (str.bytes+bytes > max_bytes) break;
+		
+		str.bytes += bytes;
+		str.length++;
+	}
+	
+	return str;
 }

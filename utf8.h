@@ -13,7 +13,8 @@
 /* yet another UTF-8 string */
 typedef struct {
 	unsigned char *data;
-	int len;
+	int length;
+	int bytes;
 } utf8_string;
 
 /**
@@ -40,5 +41,12 @@ int utf8_chrlen(unsigned char byte);
  * diffent raw codes.
  */
 int utf8_starts_with(unsigned char *buf, utf8_string *str);
+
+/**
+ * Gets utf8 string from given buf. The string contains at most max_bytes and
+ * n characters. The string may be shorter if there was not enough characters
+ * between buf and buf+max_bytes.
+ */
+utf8_string utf8_as_string(unsigned char *buf, int n, int max_bytes);
 
 #endif //UTF8_H
