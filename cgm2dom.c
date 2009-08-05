@@ -30,21 +30,18 @@ struct level {
 enum cgm_special{cgm_element_start,
 		 cgm_element_end,
 		 cgm_escape,
-		 cgm_element_content_separator,
+		 cgm_inline_separator,
 		 cgm_special_count};
 
 int main(int argc, char **argv)
 {
-	utf8_string cgm_specials[cgm_special_count];
+	int specials[cgm_special_count];
 
 	xmlDocPtr doc = NULL;            // document pointer
 	struct level levels[MAX_LEVELS];
 	int cur_level_i = 0;
 	struct level *cur_level = levels; // pointer to the first element 
-	utf8_string newline = utf8_literal_to_string("\n");
-
-	printf("pituus: %d, tavuja %d\nsisus: %s\n", newline.length,
-	       newline.bytes, newline.data);
+	int newline = 0x0a;
 
 	if (argc < 2 || argc > 3) 
 		errx(1, "Usage: %s CGM_FILE [OUTPUT_FILE]", argv[0]);
@@ -56,6 +53,25 @@ int main(int argc, char **argv)
      
 	unsigned char *cgm_p = info.data;
 	unsigned char *cgm_end = cgm_p + info.length;
+
+	// Reading the CGM header.
+	specials[cgm_element_start] = utf8_to_unicode(&cgm_p, cgm_end);
+	if (!( utf8_to_unicode(&cgm_p, cgm_end) == 0x63 && // c
+	       utf8_to_unicode(&cgm_p, cgm_end) == 0x67 && // g
+	       utf8_to_unicode(&cgm_p, cgm_end) == 0x6d && // m
+	       utf8_to_unicode(&cgm_p, cgm_end) == 0x20 )) // space
+	{
+		errx(2,"File does not contain a valid CGM header");
+	}
+
+	specials[cgm_escape] = utf8_to_unicode(&cgm_p, cgm_end);
+	specials[cgm_inline_separator] = utf8_to_unicode(&cgm_p, cgm_end);
+	specials[cgm_element_end] = utf8_to_unicode(&cgm_p, cgm_end);
+
+	if (utf8_to_unicode(&cgm_p, cgm_end) != newline)
+		errx(2,"Extra characters inside header line");
+
+	// Starting the parser.
 
 	while (1) {
 		int code = utf8_to_unicode(&cgm_p, cgm_end);
@@ -161,32 +177,6 @@ int main(int argc, char **argv)
 
 	return(0);
 }
-/*
-int read_cgm_header(FILE *file,
-		    cgm_specials[cgm_special_count][UTF8_MAX_BYTES]) {
-
-	int cgm_magic_len = 4;
-	unsigned char cgm_magic_correct = "cgm ";
-	unsigned char cgm_magic_buf[cgm_magic_len];
-	unsigned char *pos;
-	int n;
-
-	n = utf8_fgetc(file, cgm_specials[cgm_element_start]);
-	if (n<0) return n;
-
-	n = fread(cgm_magic_buf, 1, cgm_magic_len, file);
-	if (n < cgm_magic_len) return -1;
-	if ( memcmp(cgm_magic_buf, cgm_magic_correct, cgm_magic_len ) )
-		return -1;
-
-	//lue loput
-	n = utf8_fgets(file, cgm_magic, 4);
-	int utf8_starts_with(unsigned char *buf, utf8_string *str);
-
-	cgm_element_end,
-		 cgm_escape,
-		 cgm_element_content_separator,}
-*/
 #else
 	int main(void) {
 		errx(1, "Tree support not compiled in");
