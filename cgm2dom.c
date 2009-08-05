@@ -27,21 +27,28 @@ struct level {
 	xmlNodePtr parent; // parent node of this level
 };
 
-enum cgm_special{cgm_element_start,
-		 cgm_element_end,
-		 cgm_escape,
-		 cgm_inline_separator,
-		 cgm_special_count};
+struct cgm_special {
+	int element_start;
+	int element_end;
+	int escape;
+	int inline_separator;
+	int newline;
+	int tab;
+	int space;
+};
 
 int main(int argc, char **argv)
 {
-	int specials[cgm_special_count];
+	struct cgm_special special;
+	// It's safe to put ASCII literals here, values map to unicodes
+	special.newline = '\n'; 
+	special.tab = '\t';
+	special.space = ' ';
 
 	xmlDocPtr doc = NULL;            // document pointer
 	struct level levels[MAX_LEVELS];
 	int cur_level_i = 0;
 	struct level *cur_level = levels; // pointer to the first element 
-	int newline = 0x0a;
 
 	if (argc < 2 || argc > 3) 
 		errx(1, "Usage: %s CGM_FILE [OUTPUT_FILE]", argv[0]);
@@ -55,7 +62,8 @@ int main(int argc, char **argv)
 	unsigned char *cgm_end = cgm_p + info.length;
 
 	// Reading the CGM header.
-	specials[cgm_element_start] = utf8_to_unicode(&cgm_p, cgm_end);
+	special.element_start = utf8_to_unicode(&cgm_p, cgm_end);
+	
 	if (!( utf8_to_unicode(&cgm_p, cgm_end) == 0x63 && // c
 	       utf8_to_unicode(&cgm_p, cgm_end) == 0x67 && // g
 	       utf8_to_unicode(&cgm_p, cgm_end) == 0x6d && // m
@@ -64,23 +72,12 @@ int main(int argc, char **argv)
 		errx(2,"File does not contain a valid CGM header");
 	}
 
-	specials[cgm_escape] = utf8_to_unicode(&cgm_p, cgm_end);
-	specials[cgm_inline_separator] = utf8_to_unicode(&cgm_p, cgm_end);
-	specials[cgm_element_end] = utf8_to_unicode(&cgm_p, cgm_end);
+	special.escape = utf8_to_unicode(&cgm_p, cgm_end);
+	special.inline_separator = utf8_to_unicode(&cgm_p, cgm_end);
+	special.element_end = utf8_to_unicode(&cgm_p, cgm_end);
 
-	if (utf8_to_unicode(&cgm_p, cgm_end) != newline)
+	if (utf8_to_unicode(&cgm_p, cgm_end) != special.newline)
 		errx(2,"Extra characters inside header line");
-
-	// Starting the parser.
-
-	while (1) {
-		int code = utf8_to_unicode(&cgm_p, cgm_end);
-		if (code < 0) {
-			printf("Loppu tuli, vikakoodi %d", code);
-			break;
-		}
-		printf("U+%x\n", code);
-	}
 
 	// DOM startup
 	
@@ -100,26 +97,38 @@ int main(int argc, char **argv)
 	cur_level->indentation = 0;
 	cur_level->parent = root;
 	
-	unsigned char helper[2048]; // FIXME: hard coded
-	utf8_string text;
-	text.data = helper;
-	text.len = 0;
-	unsigned char *buf = text.data; // moving pointer	
+*/
 
-	while (true) {
-		int n = utf8_fgetc(file, buf);
-		
-		if (n == UTF8_ERR_NO_DATA && feof(file) ) break; // normal EOF
-		if (n < 0) errx(2,"Vika tiedostossa.");
-		
-		if (utf8_starts_with(buf, &newline)) {
-			fwrite(buf, 1, n, stdout);
-			printf("%d ",n);
+	// Starting the parser.
 
-			// other char
-			// FIXME check
-			buf += n; // Char ok for text buffer, taking that one.
-			text.len += n;
+	while (1) {
+		int code = utf8_to_unicode(&cgm_p, cgm_end);
+
+		if (code == UTF8_ERR_NO_DATA) { // End of file
+			break;
+		} else if (code < 0) {
+			printf("Tragic scandal: %d\n", code);
+			break;
+		} else if (code == special.element_start) {
+			printf("start\n");
+		} else if (code == special.element_end) {
+			printf("end\n");
+		} else if (code == special.escape) {
+			printf("escape\n");
+		} else if (code == special.inline_separator) {
+			printf("inline\n");
+		} else if (code == special.newline) {
+			printf("newline\n");
+		} else if (code == special.tab) {
+			printf("tab\n");
+		} else if (code == special.space) {
+			printf("space\n");
+		} else {
+			printf("U+%x\n", code);
+		}
+	}
+		
+/*
 		} else {
 			//FIXME counter
 			xmlNodePtr newtext = xmlNewTextLen(text.data, text.len);
@@ -135,8 +144,6 @@ int main(int argc, char **argv)
 
 	printf("\n");
 
-	enum cgm_special joopajoo;
-	printf("sizeof: %d %d\n", cgm_element_end, cgm_special_count);
 */	/*
 	xmlNewChild(root_node, NULL, BAD_CAST "node1",
 		    BAD_CAST "content of node 1");
