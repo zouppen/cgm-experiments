@@ -27,7 +27,7 @@ struct level {
 	xmlNodePtr parent; // parent node of this level
 };
 
-struct cgm_special {
+struct cgm_unicode {
 	int element_start;
 	int element_end;
 	int escape;
@@ -37,47 +37,96 @@ struct cgm_special {
 	int space;
 };
 
+struct cgm_info {
+	struct cgm_unicode unicode;
+	unsigned char *p; // OK to alter.
+	unsigned char *endptr; // End of the buffer. Do not alter.
+	unsigned char *lineptr; // Helps printing line on error
+	int line; // Line number for error reporting purposes
+};
+
+struct {
+	int line; // Zero if not applicable.
+	int see_errno; // Errno contains something important.
+	enum {
+		cgm_no_error, // The default.
+		cgm_cannot_open, 
+		cgm_invalid_header,
+		cgm_garbage,
+		cgm_invalid_byte,
+		cgm_error_code_count
+	} code;
+} cgm_error;
+
+// Prototypes are here temporarily
+xmlDocPtr cgm_parse_file(char *filename);
+void cgm_read_header(struct cgm_info *cgm);
+void cgm_err(int retval, const char *file);
+
 int main(int argc, char **argv)
 {
-	struct cgm_special special;
-	// It's safe to put ASCII literals here, values map to unicodes
-	special.newline = '\n'; 
-	special.tab = '\t';
-	special.space = ' ';
+	if (argc < 2 || argc > 3) 
+		errx(1, "Usage: %s CGM_FILE [OUTPUT_FILE]", argv[0]);
+
+	xmlDocPtr doc = cgm_parse_file(argv[1]);
+	if (cgm_error.code) cgm_err(1, argv[0]);
+	printf(":-)\n");
+
+	/* 
+	 * Dumping document to stdio or file
+	 */
+	xmlSaveFormatFileEnc(argc > 2 ? argv[2] : "-", doc, "UTF-8", 1);
+
+	/*free the document */
+	xmlFreeDoc(doc);
+
+	/*
+	 *Free the global variables that may
+	 *have been allocated by the parser.
+	 */
+	xmlCleanupParser();
+
+	/*
+	 * this is to debug memory for regression tests
+	 */
+	xmlMemoryDump();
+
+}
+
+xmlDocPtr cgm_parse_file(char *filename) {
+	struct cgm_info cgm;
 
 	xmlDocPtr doc = NULL;            // document pointer
 	struct level levels[MAX_LEVELS];
 	int cur_level_i = 0;
 	struct level *cur_level = levels; // pointer to the first element 
 
-	if (argc < 2 || argc > 3) 
-		errx(1, "Usage: %s CGM_FILE [OUTPUT_FILE]", argv[0]);
-
 	// Opening CGM file to memory
-	struct mmap_info info =	mmap_fopen(argv[1], mmap_mode_volatile_write);
-	if (info.state == mmap_state_error)
-		err(1,"Can not open a file %s for reading", argv[1]);
-     
-	unsigned char *cgm_p = info.data;
-	unsigned char *cgm_end = cgm_p + info.length;
-
-	// Reading the CGM header.
-	special.element_start = utf8_to_unicode(&cgm_p, cgm_end);
-	
-	if (!( utf8_to_unicode(&cgm_p, cgm_end) == 0x63 && // c
-	       utf8_to_unicode(&cgm_p, cgm_end) == 0x67 && // g
-	       utf8_to_unicode(&cgm_p, cgm_end) == 0x6d && // m
-	       utf8_to_unicode(&cgm_p, cgm_end) == 0x20 )) // space
-	{
-		errx(2,"File does not contain a valid CGM header");
+	struct mmap_info mmap_info = mmap_fopen(filename,
+						mmap_mode_volatile_write);
+	if (mmap_info.state == mmap_state_error) {
+		cgm_error.code = cgm_cannot_open;
+		cgm_error.see_errno = 1;
+		return doc;
 	}
 
-	special.escape = utf8_to_unicode(&cgm_p, cgm_end);
-	special.inline_separator = utf8_to_unicode(&cgm_p, cgm_end);
-	special.element_end = utf8_to_unicode(&cgm_p, cgm_end);
+	// Filling info from mmap struct to cgm parser struct
+	cgm.p = mmap_info.data;
+	cgm.endptr = cgm.p + mmap_info.length;
 
-	if (utf8_to_unicode(&cgm_p, cgm_end) != special.newline)
-		errx(2,"Extra characters inside header line");
+	// Some extra info for nicer errors
+	cgm.lineptr = cgm.p;
+	cgm.line = 1;
+
+	// Filling trivial data to the unicode values
+	// It's safe to put ASCII literals here, values map to unicodes
+	cgm.unicode.newline = '\n'; 
+	cgm.unicode.tab     = '\t';
+	cgm.unicode.space   = ' ';
+
+	// Parsing header
+	cgm_read_header(&cgm);
+	if (cgm_error.code) return doc; // ERROR
 
 	// DOM startup
 	
@@ -102,26 +151,29 @@ int main(int argc, char **argv)
 	// Starting the parser.
 
 	while (1) {
-		int code = utf8_to_unicode(&cgm_p, cgm_end);
+		int code = utf8_to_unicode(&cgm.p, cgm.endptr);
 
 		if (code == UTF8_ERR_NO_DATA) { // End of file
 			break;
 		} else if (code < 0) {
-			printf("Tragic scandal: %d\n", code);
-			break;
-		} else if (code == special.element_start) {
+			cgm_error.line = cgm.line;
+			cgm_error.code = cgm_invalid_byte;
+			cgm_error.see_errno = 0;
+			return doc;
+		} else if (code == cgm.unicode.element_start) {
 			printf("start\n");
-		} else if (code == special.element_end) {
+		} else if (code == cgm.unicode.element_end) {
 			printf("end\n");
-		} else if (code == special.escape) {
+		} else if (code == cgm.unicode.escape) {
 			printf("escape\n");
-		} else if (code == special.inline_separator) {
+		} else if (code == cgm.unicode.inline_separator) {
 			printf("inline\n");
-		} else if (code == special.newline) {
+		} else if (code == cgm.unicode.newline) {
+			cgm.line++;
 			printf("newline\n");
-		} else if (code == special.tab) {
+		} else if (code == cgm.unicode.tab) {
 			printf("tab\n");
-		} else if (code == special.space) {
+		} else if (code == cgm.unicode.space) {
 			printf("space\n");
 		} else {
 			printf("U+%x\n", code);
@@ -159,33 +211,62 @@ int main(int argc, char **argv)
 
 			   */
 
-	/* 
-	 * Dumping document to stdio or file
-	 */
-	xmlSaveFormatFileEnc(argc > 2 ? argv[2] : "-", doc, "UTF-8", 1);
-
-	/*free the document */
-	xmlFreeDoc(doc);
-
-	/*
-	 *Free the global variables that may
-	 *have been allocated by the parser.
-	 */
-	xmlCleanupParser();
-
-	/*
-	 * this is to debug memory for regression tests
-	 */
-	xmlMemoryDump();
-
-	mmap_close(&info);
-	if (info.state == mmap_state_error)
-		err(1,"Can not close the file %s",  argv[1]);
+	mmap_close(&mmap_info);
+	if (mmap_info.state == mmap_state_error)
+		err(1,"Can not close the file %s", filename);
+	// FIXME this error as cgm_error
 
 	return(0);
 }
-#else
-	int main(void) {
-		errx(1, "Tree support not compiled in");
+
+void cgm_read_header(struct cgm_info *cgm)
+{
+	cgm_error.line = 1;
+	cgm_error.see_errno = 0;
+	
+	cgm->unicode.element_start = utf8_to_unicode(&cgm->p, cgm->endptr);
+
+	if (!( utf8_to_unicode(&cgm->p, cgm->endptr) == 'c' &&
+	       utf8_to_unicode(&cgm->p, cgm->endptr) == 'g' &&
+	       utf8_to_unicode(&cgm->p, cgm->endptr) == 'm' ))
+	{
+		cgm_error.code = cgm_invalid_header;
+		return;
 	}
+
+	cgm->unicode.inline_separator = utf8_to_unicode(&cgm->p, cgm->endptr);
+	cgm->unicode.escape = utf8_to_unicode(&cgm->p, cgm->endptr);
+	cgm->unicode.element_end = utf8_to_unicode(&cgm->p, cgm->endptr);
+
+	if (utf8_to_unicode(&cgm->p, cgm->endptr) != cgm->unicode.newline) {
+		cgm_error.code = cgm_garbage;
+		return;
+	}
+
+	cgm_error.code = cgm_no_error;
+	return;
+}
+
+void cgm_err(int retval, const char *file)
+{
+	static const char *msgs[] = {
+		/* cgm_no_error */ "No error",
+		/* cgm_cannot_open */ "Cannot open file for reading",
+		/* cgm_invalid_header */ "Invalid header",
+		/* cgm_garbage */ "Garbage on line",
+		/* cgm_invalid_byte */ "Invalid encoding in file"
+	};
+	
+	if ( cgm_error.see_errno)
+		err(retval, "At file %s:%d: %s", file, cgm_error.line,
+		    msgs[cgm_error.code]);
+	else
+		errx(retval, "At file %s:%d: %s", file, cgm_error.line,
+		    msgs[cgm_error.code]);
+}
+#else
+int main(void) {
+	errx(1, "Please reinstall or recompile libxml2 "
+	     "with tree support");
+}
 #endif
