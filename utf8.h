@@ -56,4 +56,15 @@ utf8_string utf8_as_string(unsigned char *buf, int n, int max_bytes);
  */
 utf8_string utf8_literal_to_string(const char* literal);
 
+/**
+ * Converts next UTF-8 character from the byte buffer to Unicode number.
+ * After decoding, *buf is updated to the end of the character, ready to
+ * the next call of this function. Endptr is a pointer to the next byte after
+ * the last character in the buffer (buf_start_pointer+buf_length). If an
+ * error occurs, UTF8_ERR_* is returned and *buf is at the next character
+ * after the errorneous byte. 
+ */
+int utf8_to_unicode(unsigned char **buf, unsigned char *endptr);
+
+
 #endif //UTF8_H

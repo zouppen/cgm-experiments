@@ -54,6 +54,17 @@ int main(int argc, char **argv)
 	if (info.state == mmap_state_error)
 		err(1,"Can not open a file %s for reading", argv[1]);
      
+	unsigned char *cgm_p = info.data;
+	unsigned char *cgm_end = cgm_p + info.length;
+
+	while (1) {
+		int code = utf8_to_unicode(&cgm_p, cgm_end);
+		if (code < 0) {
+			printf("Loppu tuli, vikakoodi %d", code);
+			break;
+		}
+		printf("U+%x\n", code);
+	}
 
 	// DOM startup
 	

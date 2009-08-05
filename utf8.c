@@ -128,3 +128,66 @@ utf8_string utf8_literal_to_string(const char* literal)
 {
 	return utf8_as_string((unsigned char *)literal, 9999, strlen(literal));
 }
+
+/**
+ * Converts next UTF-8 character from the byte buffer to Unicode number.
+ * After decoding, *buf is updated to the end of the character, ready to
+ * the next call of this function. Endptr is a pointer to the next byte after
+ * the last character in the buffer (buf_start_pointer+buf_length). If an
+ * error occurs, UTF8_ERR_* is returned and *buf is at the next character
+ * after the errorneous byte. 
+ */
+int utf8_to_unicode(unsigned char **buf, unsigned char *endptr)
+{
+	const unsigned char left_0 = 0x00;  // 00000000
+	const unsigned char left_1 = 0x80;  // 10000000
+	const unsigned char left_2 = 0xc0;  // 11000000
+	const unsigned char left_3 = 0xe0;  // 11100000
+	const unsigned char left_4 = 0xf0;  // 11110000
+	const unsigned char left_5 = 0xf8;  // 11111000
+	const unsigned char right_6 = 0x3f; // 00111111
+
+	int code = 0;
+	int bytes, byte;
+
+	// Take a byte, move to the next.
+	if (*buf >= endptr) return UTF8_ERR_NO_DATA; // Out of buffer.
+	byte = **buf;
+	(*buf)++;
+	
+	// Take a look how many bytes there are and
+        // extract first bits of unicode.
+
+	if ( (byte & left_1) == left_0 ) {        // 0xxxxxxx (plain ASCII)
+		bytes = 1;
+		code = byte;
+	} else if ( (byte & left_3) == left_2 ) { // 110xxxxx
+		bytes = 2;
+		code = byte & ~left_3; // remove starting ones
+	} else if ( (byte & left_4) == left_3 ) { // 1110xxxx
+		bytes = 3;
+		code = byte & ~left_4;
+	} else if ( (byte & left_5) == left_4 ) { // 1110xxxx
+		bytes = 4;
+		code = byte & ~left_5;
+	} else {
+		// That was invalid code or too new standard.
+		return UTF8_ERR_INVALID_BYTE;
+	}
+
+	// Take the unicode from the trailing bytes.
+	while (--bytes) {
+		// Take a byte, move to the next.
+		if (*buf == endptr) return UTF8_ERR_TRUNCATED_BYTE;
+		byte = **buf;
+		(*buf)++;
+
+		if ( ( byte & left_2) != left_1 ) // not 10xxxxx
+			return UTF8_ERR_INVALID_BYTE;
+		
+		code <<= 6; // make space for 6 bits
+		code |= ( byte & right_6 );
+	}
+	
+	return code;
+}
