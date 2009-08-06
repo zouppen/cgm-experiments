@@ -19,6 +19,23 @@
 
 #if defined(LIBXML_TREE_ENABLED) && defined(LIBXML_OUTPUT_ENABLED)
 
+#define has_errno 1
+#define no_errno 0
+
+/**
+ * A shorthand function for setting cgm errors on one line.
+ * Sets global error code to CODE and errno status value to ERRNO
+ * (0 or 1) and returns from caller function with RET value.
+ */
+#define return_with_error(RET, CODE, ERRNO) { cgm_error.code = (CODE); cgm_error.see_errno = (ERRNO); return (RET); }
+
+/**
+ * Cleans error structure by setting it to successful state and returns from
+ * caller function with RET value.
+ */
+#define return_success(RET) { cgm_error.code = cgm_no_error; return (RET); }
+
+
 const int MAX_LEVELS=10; // hard-wired indent levels... blame me.
 const int true = 1;
 
@@ -45,22 +62,24 @@ struct cgm_info {
 	int line; // Line number for error reporting purposes
 };
 
+// Not a thread-safe solution. But without this the code becomes a total mess.
 struct {
 	int line; // Zero if not applicable.
 	int see_errno; // Errno contains something important.
-	enum {
+	enum cgm_error_code {
 		cgm_no_error, // The default.
-		cgm_cannot_open, 
-		cgm_invalid_header,
-		cgm_garbage,
-		cgm_invalid_byte,
+		cgm_err_file_open,
+		cgm_err_file_close,
+		cgm_err_invalid_header,
+		cgm_err_garbage,
+		cgm_err_invalid_byte,
 		cgm_error_code_count
 	} code;
 } cgm_error;
 
 // Prototypes are here temporarily
 xmlDocPtr cgm_parse_file(char *filename);
-void cgm_read_header(struct cgm_info *cgm);
+int cgm_read_header(struct cgm_info *cgm);
 void cgm_err(int retval, const char *file);
 
 int main(int argc, char **argv)
@@ -69,7 +88,7 @@ int main(int argc, char **argv)
 		errx(1, "Usage: %s CGM_FILE [OUTPUT_FILE]", argv[0]);
 
 	xmlDocPtr doc = cgm_parse_file(argv[1]);
-	if (cgm_error.code) cgm_err(1, argv[0]);
+	if (cgm_error.code) cgm_err(1, argv[1]);
 	printf(":-)\n");
 
 	/* 
@@ -104,11 +123,8 @@ xmlDocPtr cgm_parse_file(char *filename) {
 	// Opening CGM file to memory
 	struct mmap_info mmap_info = mmap_fopen(filename,
 						mmap_mode_volatile_write);
-	if (mmap_info.state == mmap_state_error) {
-		cgm_error.code = cgm_cannot_open;
-		cgm_error.see_errno = 1;
-		return doc;
-	}
+	if (mmap_info.state == mmap_state_error)
+		return_with_error(doc, cgm_err_file_open, 1);
 
 	// Filling info from mmap struct to cgm parser struct
 	cgm.p = mmap_info.data;
@@ -156,10 +172,9 @@ xmlDocPtr cgm_parse_file(char *filename) {
 		if (code == UTF8_ERR_NO_DATA) { // End of file
 			break;
 		} else if (code < 0) {
+			// Unexcepted error.
 			cgm_error.line = cgm.line;
-			cgm_error.code = cgm_invalid_byte;
-			cgm_error.see_errno = 0;
-			return doc;
+			return_with_error(doc, cgm_err_invalid_byte, no_errno);
 		} else if (code == cgm.unicode.element_start) {
 			printf("start\n");
 		} else if (code == cgm.unicode.element_end) {
@@ -213,16 +228,18 @@ xmlDocPtr cgm_parse_file(char *filename) {
 
 	mmap_close(&mmap_info);
 	if (mmap_info.state == mmap_state_error)
-		err(1,"Can not close the file %s", filename);
-	// FIXME this error as cgm_error
+		return_with_error(doc, cgm_err_file_close, has_errno);
 
-	return(0);
+	return_success(doc);
 }
 
-void cgm_read_header(struct cgm_info *cgm)
+/**
+ * Reads CGM header and fills the given cgm struct with all the important stuff.
+ * Always returns 0. Errors are passed with return_with_error().
+ */
+int cgm_read_header(struct cgm_info *cgm)
 {
 	cgm_error.line = 1;
-	cgm_error.see_errno = 0;
 	
 	cgm->unicode.element_start = utf8_to_unicode(&cgm->p, cgm->endptr);
 
@@ -230,31 +247,32 @@ void cgm_read_header(struct cgm_info *cgm)
 	       utf8_to_unicode(&cgm->p, cgm->endptr) == 'g' &&
 	       utf8_to_unicode(&cgm->p, cgm->endptr) == 'm' ))
 	{
-		cgm_error.code = cgm_invalid_header;
-		return;
+		return_with_error(0, cgm_err_invalid_header, no_errno);
 	}
 
 	cgm->unicode.inline_separator = utf8_to_unicode(&cgm->p, cgm->endptr);
 	cgm->unicode.escape = utf8_to_unicode(&cgm->p, cgm->endptr);
 	cgm->unicode.element_end = utf8_to_unicode(&cgm->p, cgm->endptr);
 
-	if (utf8_to_unicode(&cgm->p, cgm->endptr) != cgm->unicode.newline) {
-		cgm_error.code = cgm_garbage;
-		return;
-	}
+	if (utf8_to_unicode(&cgm->p, cgm->endptr) != cgm->unicode.newline)
+		return_with_error(0, cgm_err_garbage, no_errno);
 
-	cgm_error.code = cgm_no_error;
-	return;
+	return_success(0);
 }
 
+/**
+ * Displays error with CGM parsing in a user friendly form. Exits the program
+ * with retval and puts file name 'file' to the error message.
+ */
 void cgm_err(int retval, const char *file)
 {
 	static const char *msgs[] = {
-		/* cgm_no_error */ "No error",
-		/* cgm_cannot_open */ "Cannot open file for reading",
-		/* cgm_invalid_header */ "Invalid header",
-		/* cgm_garbage */ "Garbage on line",
-		/* cgm_invalid_byte */ "Invalid encoding in file"
+		/* cgm_err_no_error */ "No error",
+		/* cgm_err_file_open */ "Cannot open file for reading",
+		/* cgm_err_file_close */ "Cannot close the file",
+		/* cgm_err_invalid_header */ "Invalid header. Not a CGM file?",
+		/* cgm_err_garbage */ "Garbage on line",
+		/* cgm_err_invalid_byte */ "Invalid encoding in file"
 	};
 	
 	if ( cgm_error.see_errno)
