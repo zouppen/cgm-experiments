@@ -16,25 +16,9 @@
 
 #include "utf8.h"
 #include "mmap.h"
+#include "cgm_error.h"
 
 #if defined(LIBXML_TREE_ENABLED) && defined(LIBXML_OUTPUT_ENABLED)
-
-#define has_errno 1
-#define no_errno 0
-
-/**
- * A shorthand function for setting cgm errors on one line.
- * Sets global error code to CODE and errno status value to ERRNO
- * (0 or 1) and returns from caller function with RET value.
- */
-#define return_with_error(RET, CODE, ERRNO) { cgm_error.code = (CODE); cgm_error.see_errno = (ERRNO); return (RET); }
-
-/**
- * Cleans error structure by setting it to successful state and returns from
- * caller function with RET value.
- */
-#define return_success(RET) { cgm_error.code = cgm_no_error; return (RET); }
-
 
 const int MAX_LEVELS=10; // hard-wired indent levels... blame me.
 const int true = 1;
@@ -62,20 +46,6 @@ struct cgm_info {
 	int line; // Line number for error reporting purposes
 };
 
-// Not a thread-safe solution. But without this the code becomes a total mess.
-struct {
-	int line; // Zero if not applicable.
-	int see_errno; // Errno contains something important.
-	enum cgm_error_code {
-		cgm_no_error, // The default.
-		cgm_err_file_open,
-		cgm_err_file_close,
-		cgm_err_invalid_header,
-		cgm_err_garbage,
-		cgm_err_invalid_byte,
-		cgm_error_code_count
-	} code;
-} cgm_error;
 
 // Prototypes are here temporarily
 xmlDocPtr cgm_parse_file(char *filename);
@@ -260,28 +230,6 @@ int cgm_read_header(struct cgm_info *cgm)
 	return_success(0);
 }
 
-/**
- * Displays error with CGM parsing in a user friendly form. Exits the program
- * with retval and puts file name 'file' to the error message.
- */
-void cgm_err(int retval, const char *file)
-{
-	static const char *msgs[] = {
-		/* cgm_err_no_error */ "No error",
-		/* cgm_err_file_open */ "Cannot open file for reading",
-		/* cgm_err_file_close */ "Cannot close the file",
-		/* cgm_err_invalid_header */ "Invalid header. Not a CGM file?",
-		/* cgm_err_garbage */ "Garbage on line",
-		/* cgm_err_invalid_byte */ "Invalid encoding in file"
-	};
-	
-	if ( cgm_error.see_errno)
-		err(retval, "At file %s:%d: %s", file, cgm_error.line,
-		    msgs[cgm_error.code]);
-	else
-		errx(retval, "At file %s:%d: %s", file, cgm_error.line,
-		    msgs[cgm_error.code]);
-}
 #else
 int main(void) {
 	errx(1, "Please reinstall or recompile libxml2 "
