@@ -33,6 +33,7 @@ struct cgm_error_struct {
 		cgm_err_invalid_header,
 		cgm_err_garbage,
 		cgm_err_invalid_byte,
+		cgm_err_indentation,
 		cgm_error_code_count
 	} code;
 };

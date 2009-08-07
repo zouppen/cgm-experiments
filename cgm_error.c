@@ -20,7 +20,8 @@ void cgm_err(int retval, const char *file)
 		/* cgm_err_file_close */ "Cannot close the file",
 		/* cgm_err_invalid_header */ "Invalid header. Not a CGM file?",
 		/* cgm_err_garbage */ "Garbage on line",
-		/* cgm_err_invalid_byte */ "Invalid encoding in file"
+		/* cgm_err_invalid_byte */ "Invalid encoding in file",
+		/* cgm_err_indentation */ "Obscure indentation"
 	};
 	
 	if ( cgm_error.see_errno)

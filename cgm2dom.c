@@ -24,7 +24,7 @@ const int MAX_LEVELS=10; // hard-wired indent levels... blame me.
 const int true = 1;
 
 struct level {
-	int indentation;   // indentation of that level
+	int indent;        // indentation of that level
 	xmlNodePtr parent; // parent node of this level
 };
 
@@ -134,14 +134,13 @@ xmlDocPtr cgm_parse_file(char *filename) {
 	xmlDocSetRootElement(doc, root);
 	xmlNewProp(root, BAD_CAST "original", BAD_CAST filename);
 
-/*	
-	// Set level indicators	
-	cur_level->indentation = 0;
+	// Set indentation level 
+	cur_level->indent = 0;
 	cur_level->parent = root;
-	
-*/
 
 	// Line parser.
+
+	xmlNodePtr last_node = NULL;
 
 	while (1) {
 
@@ -149,12 +148,35 @@ xmlDocPtr cgm_parse_file(char *filename) {
 		int indent = cgm_read_indent(&cgm);
 		if (cgm_error.code) return doc; // error occurred
 
+		// Indentation
 		if (indent == cgm_empty_line) {
 			printf("empty\n");
 			continue;
 		}
 
+		if ( indent == cur_level->indent ) {
+			// Just like previous line
+		} else if ( indent > cur_level->indent ) {
+			// Indent has increased.
+			// FIXME check if we need to allocate more memory
+			cur_level++;
+			cur_level->indent = indent;
+			cur_level->parent = last_node;
+		} else {
+			// Indent has decreased
+			// Search for matching indentation level
+			while (indent < cur_level->indent) {
+				cur_level--;
+			}
+			
+			// If it's not matching then we have a syntax error
+			if ( indent != cur_level->indent )
+				return_with_error(doc, cgm_err_indentation, 1);
+		}
+		
 		printf("Indent: %d\n",indent); // debug
+
+		// Put the element into the DOM tree
 
 		unsigned char *text_p = cgm.p;
 		int text_length = cgm_read_text(&cgm);
@@ -162,12 +184,14 @@ xmlDocPtr cgm_parse_file(char *filename) {
 		
 		printf("Bytes in that line: %d\n",text_length);
 
-		// Add element to the tree. No hierarchy yet...
+		// Add new element to the tree.
 		xmlNodePtr new_text = xmlNewTextLen(text_p, text_length);
-		xmlNodePtr new_el = xmlNewChild(root, NULL,
+		xmlNodePtr new_el = xmlNewChild(cur_level->parent, NULL,
 						BAD_CAST "line", NULL);
-		xmlAddChild(new_el, new_text);			
+		xmlAddChild(new_el, new_text);
 		
+		last_node = new_el;
+
 		// Take the newline out.
 		utf8_to_unicode(&cgm.p, cgm.endptr); // FIXME doesn't check...
 		
