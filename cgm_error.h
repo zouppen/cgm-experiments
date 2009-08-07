@@ -39,4 +39,6 @@ struct cgm_error_struct {
 
 extern struct cgm_error_struct cgm_error;
 
+void cgm_err(int retval, const char *file);
+
 #endif /* cgm_error.h */

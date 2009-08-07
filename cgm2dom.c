@@ -36,6 +36,7 @@ struct cgm_unicode {
 	int newline;
 	int tab;
 	int space;
+	int preformatted;
 };
 
 struct cgm_info {
@@ -46,11 +47,14 @@ struct cgm_info {
 	int line; // Line number for error reporting purposes
 };
 
+const int tab_width = 8; // May be nice if configurable
+const int cgm_empty_line = -1;
 
 // Prototypes are here temporarily
 xmlDocPtr cgm_parse_file(char *filename);
 int cgm_read_header(struct cgm_info *cgm);
-void cgm_err(int retval, const char *file);
+int cgm_read_indent(struct cgm_info *cgm);
+int cgm_dummy_dumper(struct cgm_info *cgm);
 
 int main(int argc, char **argv)
 {
@@ -127,6 +131,8 @@ xmlDocPtr cgm_parse_file(char *filename) {
 				   BAD_CAST "http://codegrove.org/2009/cgm",
 				   NULL);
 	xmlDocSetRootElement(doc, root);
+	xmlNewProp(root, BAD_CAST "original", BAD_CAST filename);
+
 /*	
 	// Set level indicators	
 	cur_level->indentation = 0;
@@ -134,37 +140,27 @@ xmlDocPtr cgm_parse_file(char *filename) {
 	
 */
 
-	// Starting the parser.
+	// Line parser.
 
 	while (1) {
-		int code = utf8_to_unicode(&cgm.p, cgm.endptr);
 
-		if (code == UTF8_ERR_NO_DATA) { // End of file
-			break;
-		} else if (code < 0) {
-			// Unexcepted error.
-			cgm_error.line = cgm.line;
-			return_with_error(doc, cgm_err_invalid_byte, no_errno);
-		} else if (code == cgm.unicode.element_start) {
-			printf("start\n");
-		} else if (code == cgm.unicode.element_end) {
-			printf("end\n");
-		} else if (code == cgm.unicode.escape) {
-			printf("escape\n");
-		} else if (code == cgm.unicode.inline_separator) {
-			printf("inline\n");
-		} else if (code == cgm.unicode.newline) {
-			cgm.line++;
-			printf("newline\n");
-		} else if (code == cgm.unicode.tab) {
-			printf("tab\n");
-		} else if (code == cgm.unicode.space) {
-			printf("space\n");
-		} else {
-			printf("U+%x\n", code);
+		// Determining line indent
+		int indent = cgm_read_indent(&cgm);
+		if (cgm_error.code) return doc; // error occurred
+
+		if (indent == cgm_empty_line) {
+			printf("empty\n");
+			continue;
 		}
+
+		printf("Indent: %d\n",indent); // debug
+
+		cgm_dummy_dumper(&cgm);
+		if (cgm_error.code) return doc; // error occurred
+
+		if (cgm.p >= cgm.endptr) break; // EOF
 	}
-		
+	
 /*
 		} else {
 			//FIXME counter
@@ -215,19 +211,90 @@ int cgm_read_header(struct cgm_info *cgm)
 
 	if (!( utf8_to_unicode(&cgm->p, cgm->endptr) == 'c' &&
 	       utf8_to_unicode(&cgm->p, cgm->endptr) == 'g' &&
-	       utf8_to_unicode(&cgm->p, cgm->endptr) == 'm' ))
+	       utf8_to_unicode(&cgm->p, cgm->endptr) == 'm' &&
+	       utf8_to_unicode(&cgm->p, cgm->endptr) == '1' ))
 	{
 		return_with_error(0, cgm_err_invalid_header, no_errno);
 	}
 
 	cgm->unicode.inline_separator = utf8_to_unicode(&cgm->p, cgm->endptr);
-	cgm->unicode.escape = utf8_to_unicode(&cgm->p, cgm->endptr);
-	cgm->unicode.element_end = utf8_to_unicode(&cgm->p, cgm->endptr);
+	cgm->unicode.escape           = utf8_to_unicode(&cgm->p, cgm->endptr);
+	cgm->unicode.preformatted     = utf8_to_unicode(&cgm->p, cgm->endptr);
+	cgm->unicode.element_end      = utf8_to_unicode(&cgm->p, cgm->endptr);
 
 	if (utf8_to_unicode(&cgm->p, cgm->endptr) != cgm->unicode.newline)
 		return_with_error(0, cgm_err_garbage, no_errno);
 
 	return_success(0);
+}
+
+/**
+ * Count indentation level. If the line has no content, this function returns
+ * -1 and cgm->p is at the beginning of the following line.
+ */
+int cgm_read_indent(struct cgm_info *cgm)
+{
+	unsigned char *prev_p;
+	int indent = 0;
+
+	while (1) {
+		prev_p = cgm->p;
+		int code = utf8_to_unicode(&cgm->p, cgm->endptr);
+		
+		if (code == UTF8_ERR_NO_DATA ||
+		    code == cgm->unicode.newline ) {
+			// Line has no content
+			return_success(cgm_empty_line);
+		} else if (code < 0) {
+			// Unexcepted error.
+			return_with_error(0, cgm_err_invalid_byte, no_errno);
+		} else if (code == cgm->unicode.space) {
+			indent++;
+		} else if (code == cgm->unicode.tab) {
+			// Rounding towards next tab (allows spaces to be mixed)
+			indent += tab_width - (indent % tab_width);
+		} else {
+			// Content starts. "Unget" last character
+			cgm->p = prev_p;
+			return_success(indent);
+		}
+	}
+}
+
+/**
+ * Dumps a line as tokens and Unicode values to standard output.
+ * Used for debugging purposes.
+ */
+int cgm_dummy_dumper(struct cgm_info *cgm)
+{
+	while (1) {
+
+		int code = utf8_to_unicode(&cgm->p, cgm->endptr);
+				
+		if (code == UTF8_ERR_NO_DATA) { // End of file
+			return_success(0);
+		} else if (code < 0) {
+			// Unexcepted error.
+			return_with_error(0, cgm_err_invalid_byte, no_errno);
+		} else if (code == cgm->unicode.element_start) {
+			printf("start\n");
+		} else if (code == cgm->unicode.element_end) {
+			printf("end\n");
+		} else if (code == cgm->unicode.escape) {
+			printf("escape\n");
+		} else if (code == cgm->unicode.inline_separator) {
+			printf("inline\n");
+		} else if (code == cgm->unicode.newline) {
+			printf("newline\n");
+			return_success(0);
+		} else if (code == cgm->unicode.tab) {
+			printf("tab\n");
+		} else if (code == cgm->unicode.space) {
+			printf("space\n");
+		} else {
+			printf("U+%x\n", code);
+		}
+	}
 }
 
 #else
