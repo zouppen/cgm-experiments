@@ -156,10 +156,17 @@ xmlDocPtr cgm_parse_file(char *filename) {
 
 		printf("Indent: %d\n",indent); // debug
 
+		unsigned char *text_p = cgm.p;
 		int text_length = cgm_read_text(&cgm);
 		if (cgm_error.code) return doc; // error occurred
 		
 		printf("Bytes in that line: %d\n",text_length);
+
+		// Add element to the tree. No hierarchy yet...
+		xmlNodePtr new_text = xmlNewTextLen(text_p, text_length);
+		xmlNodePtr new_el = xmlNewChild(root, NULL,
+						BAD_CAST "line", NULL);
+		xmlAddChild(new_el, new_text);			
 		
 		// Take the newline out.
 		utf8_to_unicode(&cgm.p, cgm.endptr); // FIXME doesn't check...
@@ -167,23 +174,7 @@ xmlDocPtr cgm_parse_file(char *filename) {
 		if (cgm.p >= cgm.endptr) break; // EOF
 	}
 	
-/*
-		} else {
-			//FIXME counter
-			xmlNodePtr newtext = xmlNewTextLen(text.data, text.len);
-			xmlNodePtr new_el = xmlNewChild(root, NULL,
-							BAD_CAST "line", NULL);
-			xmlAddChild(new_el, newtext);			
-
-			// Text node is done, rolling back
-			buf=text.data;
-			text.len = 0;
-		}
-	}
-
-	printf("\n");
-
-*/	/*
+	/*
 	xmlNewChild(root_node, NULL, BAD_CAST "node1",
 		    BAD_CAST "content of node 1");
 
