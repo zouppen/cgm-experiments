@@ -54,6 +54,7 @@ const int cgm_empty_line = -1;
 xmlDocPtr cgm_parse_file(char *filename);
 int cgm_read_header(struct cgm_info *cgm);
 int cgm_read_indent(struct cgm_info *cgm);
+int cgm_read_text(struct cgm_info *cgm);
 int cgm_dummy_dumper(struct cgm_info *cgm);
 
 int main(int argc, char **argv)
@@ -155,9 +156,14 @@ xmlDocPtr cgm_parse_file(char *filename) {
 
 		printf("Indent: %d\n",indent); // debug
 
-		cgm_dummy_dumper(&cgm);
+		int text_length = cgm_read_text(&cgm);
 		if (cgm_error.code) return doc; // error occurred
-
+		
+		printf("Bytes in that line: %d\n",text_length);
+		
+		// Take the newline out.
+		utf8_to_unicode(&cgm.p, cgm.endptr); // FIXME doesn't check...
+		
 		if (cgm.p >= cgm.endptr) break; // EOF
 	}
 	
@@ -296,6 +302,35 @@ int cgm_dummy_dumper(struct cgm_info *cgm)
 		}
 	}
 }
+
+/**
+ * This function reads content until next character is non-text like element
+ * boundary, escape character or newline. This function returns text block
+ * length IN BYTES. At the end of this call cgm->p points to the start of the
+ * next non-text character.
+ * FIXME. Now it just takes everything it gets except newlines.
+ */
+int cgm_read_text(struct cgm_info *cgm)
+{
+	const unsigned char *start = cgm->p;
+	unsigned char *p = cgm->p; // Current position in file.
+
+	while (1) {
+		int code = utf8_to_unicode(&p, cgm->endptr);
+		
+		if (code == UTF8_ERR_NO_DATA ||
+		    code == cgm->unicode.newline ) {
+			// End has came
+			int length = cgm->p - start;
+			return_success(length);
+		} else if (code < 0) {
+			// Unexcepted error.
+			return_with_error(0, cgm_err_invalid_byte, no_errno);
+		}
+		cgm->p = p; // Keeping cgm->p always one char before p.
+	}
+}
+
 
 #else
 int main(void) {
