@@ -47,15 +47,27 @@ struct cgm_info {
 	int line; // Line number for error reporting purposes
 };
 
+struct cgm_element {
+	unsigned char *name;
+	int name_length;
+	int is_inline;
+}
+
 const int tab_width = 8; // May be nice if configurable
 const int cgm_empty_line = -1;
+
+// for indentation count
+const int level_inline = -1;    // eg. [el|THIS]
+const int level_immediate = -2; // eg. [el] THIS
 
 // Prototypes are here temporarily
 xmlDocPtr cgm_parse_file(char *filename);
 int cgm_read_header(struct cgm_info *cgm);
 int cgm_read_indent(struct cgm_info *cgm);
 int cgm_read_text(struct cgm_info *cgm);
+struct cgm_element cgm_read_element_name(struct cgm_info *cgm)
 int cgm_dummy_dumper(struct cgm_info *cgm);
+int cgm_is_this(struct cgm_info *cgm, int charcode);
 
 int main(int argc, char **argv)
 {
@@ -164,6 +176,7 @@ xmlDocPtr cgm_parse_file(char *filename) {
 			cur_level->parent = last_node;
 		} else {
 			// Indent has decreased
+
 			// Search for matching indentation level
 			while (indent < cur_level->indent) {
 				cur_level--;
@@ -174,7 +187,30 @@ xmlDocPtr cgm_parse_file(char *filename) {
 				return_with_error(doc, cgm_err_indentation, 1);
 		}
 		
-		printf("Indent: %d\n",indent); // debug
+		// Look for element start
+		if ( cgm_is_this(&cgm, cgm.unicode.element_start) ) {
+			// Read element name
+			struct cgm_element = cgm_read_element_name(&cgm);
+			if (cgm_error.code) return doc; // error occurred
+
+
+			xmlNodePtr new_el = xmlNewChild(cur_level->parent, NULL,
+							BAD_CAST "element",
+							NULL);
+			
+			// Indent has increased.
+			// FIXME check if we need to allocate more memory
+			cur_level++;
+			cur_level->parent = new_el;
+			
+			if (
+			cur_level->indent = level_immediate inline; // FIXME
+
+
+			
+			if
+
+			int text_length = 
 
 		// Put the element into the DOM tree
 
@@ -187,10 +223,16 @@ xmlDocPtr cgm_parse_file(char *filename) {
 		// Add new element to the tree.
 		xmlNodePtr new_text = xmlNewTextLen(text_p, text_length);
 		xmlNodePtr new_el = xmlNewChild(cur_level->parent, NULL,
-						BAD_CAST "line", NULL);
+						BAD_CAST "block", NULL);
 		xmlAddChild(new_el, new_text);
-		
+
 		last_node = new_el;
+		
+		// Insert arbitary newline to DOM
+		// TODO better place
+		xmlNodePtr cool_newline = xmlNewTextLen(BAD_CAST "\n", 1);
+		xmlAddChild(cur_level->parent, cool_newline);
+
 
 		// Take the newline out.
 		utf8_to_unicode(&cgm.p, cgm.endptr); // FIXME doesn't check...
@@ -346,6 +388,57 @@ int cgm_read_text(struct cgm_info *cgm)
 	}
 }
 
+struct cgm_element cgm_read_element_name(struct cgm_info *cgm)
+{
+	struct cgm_element element;
+	
+	element.name = cgm->p; // Starting point
+	unsigned char *p = cgm->p; // Current position in file.
+
+	while (1) {
+		int code = utf8_to_unicode(&p, cgm->endptr);
+		
+		if (code == UTF8_ERR_NO_DATA ||
+		    code == cgm->unicode.newline ) {
+			// Sudden end of line
+			return_with_error(element, cgm_err_element, no_errno);
+		} else if (code < 0) {
+			// Unexcepted error.
+			return_with_error(element, cgm_err_invalid_byte,
+					  no_errno);
+		} else if (code == cgm->unicode.element_end) {
+			element.name_length = cgm->p - element.name;
+			element.is_inline = 0;
+			return_success(element);
+		} else if (code == cgm->unicode.inline_separator) {
+			element.name_length = cgm->p - element.name;
+			element.is_inline = 1;
+			return_success(element);
+		}
+		cgm->p = p; // Keeping cgm->p always one char before p.
+	}
+}
+
+
+int cgm_is_this(struct cgm_info *cgm, int charcode)
+{
+	unsigned char *p = cgm->p; // Current position in file.
+	int code = utf8_to_unicode(&p, cgm->endptr);
+		
+	if (code == UTF8_ERR_NO_DATA) {
+	  // End of file
+	  return_success(0);
+	} else if (code < 0) {
+	  // Unexcepted error.
+	  return_with_error(0, cgm_err_invalid_byte, no_errno);
+	} else if (code == charcode) {
+	  // Found. Go forward in the stream
+	  cgm->p = p;
+	  return_success(1);
+	}
+
+	return_success(0);
+}
 
 #else
 int main(void) {
